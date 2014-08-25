@@ -22,16 +22,17 @@ def get_IDv1(f):
             fin.seek(-(128+227), 2) 
             id3e = fin.read(227)
             id3 = fin.read(128)
-            finally:
-                fin.close()
+        finally:
+            fin.close()
             
-            # do a basic check to see if we have tags
-            if not id3[:3] == "TAG":
-                id3 = None
-            if not id3e[:4] == "TAG+":
-                id3e = None
     except IOError:
         pass
+
+    # do a basic check to see if we have tags
+    if not id3[:3] == "TAG":
+        id3 = None
+    if not id3e[:4] == "TAG+":
+        id3e = None
 
     # do some processing with the tags we may have.
     if id3:
@@ -58,9 +59,9 @@ def parse_id3v1(data):
     if data[125:126] == "\00":
         # track num present
         info['comment'] = striptag(data[97:125])
-        info['track'] = ord([126:127])
+        info['track'] = ord(data[126:127])
     else:
-        info['comment'] = striptag([97:127])
+        info['comment'] = striptag(data[97:127])
         info['track'] = None
     info['genre'] = ord(data[127:128])
     return info
@@ -81,5 +82,74 @@ def parse_id3v1e(data):
     return info
 
 
-def striptag(data)
+def get_IDv2(f):
+    '''
+    Gets the ID3v2 tags from a file. Supports minimally v2.3.
+    '''
+    v2meta = None
+    v2tags = None
+    try:
+        fin = open(f, "rb", 0)
+        try:
+            # start by grabbing the meta info.
+            # meta frame is 10 bytes long
+            meta = fin.read(10)
+            print meta
+            print len(meta)
+            pmeta = parse_V2meta(meta)
+        finally:
+            fin.close()
+    except IOError:
+        pass
+    return pmeta
+
+
+def parse_V2meta(data):
+    '''
+    Grab the meta info from the tag.
+    '''
+    if not data[:3] == "ID3":
+        # we didn't read an ID3v2 tag if this isn't true.
+        return None
+    meta = {}
+    meta['major_version'] = ord(data[3:4])
+    meta['minor_version'] = ord(data[4:5])
+    meta['flags'] = ord(data[5:6])
+    meta['size_bits'] = data[6:10]
+    meta['unsync'] = bool(meta['flags'] & 127)
+    meta['extended'] = bool(meta['flags'] & 64)
+    meta['experimental'] = bool(meta['flags'] & 32)
+    # the other bits should be zero... but not going to verify.
+    s = meta['size_bits']
+    s1 = ord(s[0:1]) & 126
+    s2 = ord(s[1:2]) & 126
+    s3 = ord(s[2:3]) & 126
+    s4 = ord(s[3:4]) & 126
+    meta['size'] = s1 + s2 + s3 + s4
+    return meta
+
+
+def test_printv1(v1tags):
+    '''
+    Prints the v1 tags for a test.
+    '''
+    pass
+
+
+def test_printv2(v2tags):
+    '''
+    Prints the v2 tags for a test.
+    '''
+    # only print the meta for now.
+    if v2tags is None:
+        print "No Tags Found."
+        return
+    t = v2tags
+    print "Version: {}.{}".format(t['major_version'], t['minor_version'])
+    s = "Flags: unsync: {} extended: {} experimental: {}"
+    print s.format(t['unsync'], t['extended'], t['experimental'])
+    print "Size: {}".format(t['size'])
+
+
+def striptag(data):
     return data.replace("\00", "").strip()
