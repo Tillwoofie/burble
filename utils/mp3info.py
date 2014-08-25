@@ -7,6 +7,9 @@
 # in the root of the project, at <http://www.gnu.org/licenses/>,
 # or at <https://github.com/Tillwoofie/burble/blob/master/LICENSE>
 
+import re
+
+fid_pat = re.compile("^[0-9A-Z][0-9A-Z][0-9A-Z][0-9A-Z]$")
 
 def get_IDv1(f):
     '''
@@ -94,14 +97,85 @@ def get_IDv2(f):
             # start by grabbing the meta info.
             # meta frame is 10 bytes long
             meta = fin.read(10)
-            print meta
-            print len(meta)
             pmeta = parse_V2meta(meta)
+            tags = None
+            if pmeta is not None:
+                # should be the entire length of the tags
+                tags = parse_V2(fin.read(pmeta['size']))
         finally:
             fin.close()
     except IOError:
         pass
     return pmeta
+
+
+def parse_V2(data, meta):
+    '''
+    Parse the v2 tags out of the provided data.
+    '''
+    if meta['extended']:
+        # don't handle this right now.
+        return None
+    if meta['unsync'];
+        #also don't support this yet.
+        return None
+    pos = 0
+    while True:
+        x = getv2Tag(data, pos)
+
+
+def getv2Tag(data, pos):
+    '''
+    Gets the next tag from data, starting at pos.
+    '''
+    hdr = data[pos:pos+10]
+    fid = hdr[0:4]
+    rsize = hdr[4:8]
+    size = ord(rsize[0]) + ord(rsize[1]) + ord(rsize[2]) + ord(rsize[3])
+    rflags = hdr[8:10]
+    if not validate_fid(fid):
+        return (None, None) # This should change, not sure what to do now.
+    # continue parsing tag
+    npos = size + 10
+    flags = dec_fflags(rflags)
+    # we should parse additional information about the tags
+    # any of these throw off parsing, sooo, do this later.
+    if flags['COMP']:
+        # had additional bytes after the header
+        return (None, None)
+    if flags['ENC']:
+        # it is encrypted...
+        return (None, None)
+    if flags['GRP']
+        # part of a group
+        return (None, None)
+    # if none of those, keep going...
+    pass
+
+
+def dec_fflags(flag_data):
+    '''
+    Decode the frame flags of a v2 tag.
+    '''
+    f = {}
+    b1 = ord(flag_data[0])
+    b2 = ord(flag_data[1])
+    # these are about re-writing tags
+    f['TAP'] = b1 & 127
+    f['FAP'] = b1 & 64
+    f['RO'] = b1 & 32
+    # these specify additional info about this tag
+    f['COMP'] = b2 & 127
+    f['ENC'] = b2 & 64
+    f['GRP'] = b2 & 32
+
+    return f
+
+
+def validate_fid(fid):
+    if fid_pat.match(fid):
+        return True
+    else return False
 
 
 def parse_V2meta(data):
